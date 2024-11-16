@@ -1,95 +1,17 @@
-//! # VM Assembler
-//! This module implements an assembler for converting assembly language into bytecode
-//! for our virtual machine. The assembler performs a two-pass assembly process:
-//! 1. First pass: Collect labels and calculate addresses
-//! 2. Second pass: Generate actual bytecode
-
 use std::collections::HashMap;
-use std::error::Error;
-use std::fmt;
-use std::str::FromStr;
 
-/// Represents errors that can occur during the assembly process.
-/// These errors provide detailed information about what went wrong during
-/// assembly of the source code.
-#[derive(Debug)]
-pub enum AssemblerError
+use super::error::AssemblerError;
+use super::instruction::Instruction;
+
+pub struct Parser
 {
-    /// Indicates an invalid or unknown instruction was encountered
-    InvalidInstruction(String),
-    /// Indicates an invalid register reference (must be r0-r7)
-    InvalidRegister(String),
-    /// Indicates an invalid value (e.g., number too large for u8)
-    InvalidValue(String),
-    /// Indicates a malformed label
-    InvalidLabel(String),
-    /// Indicates a reference to a non-existent label
-    UndefinedLabel(String),
-    /// Provides detailed information about operand count mismatches
-    InvalidNumberOfOperands
-    {
-        instruction: String,
-        expected: usize,
-        got: usize,
-    },
-}
-
-// Add Display implementation
-impl fmt::Display for AssemblerError
-{
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result
-    {
-        match self {
-            AssemblerError::InvalidInstruction(s) => write!(f, "Invalid instruction: {}", s),
-            AssemblerError::InvalidRegister(s) => write!(f, "Invalid register: {}", s),
-            AssemblerError::InvalidValue(s) => write!(f, "Invalid value: {}", s),
-            AssemblerError::InvalidLabel(s) => write!(f, "Invalid label: {}", s),
-            AssemblerError::UndefinedLabel(s) => write!(f, "Undefined label: {}", s),
-            AssemblerError::InvalidNumberOfOperands {
-                instruction,
-                expected,
-                got,
-            } => write!(
-                f,
-                "Invalid number of operands for {}: expected {}, got {}",
-                instruction, expected, got
-            ),
-        }
-    }
-}
-
-// Add Error implementation
-impl Error for AssemblerError {}
-
-/// Represents a single instruction in the assembly code.
-/// This struct holds all the information needed to generate
-/// the bytecode for one instruction.
-#[derive(Debug)]
-struct Instruction
-{
-    /// The operation code (e.g., "MOV", "ADD", etc.)
-    opcode: String,
-    /// The operands for this instruction
-    operands: Vec<String>,
-}
-
-/// The main assembler struct that handles converting assembly code to bytecode.
-pub struct Assembler
-{
-    /// Vector of all instructions found in the source code
     instructions: Vec<Instruction>,
-    /// HashMap of label names to their addresses in memory
     pub labels: HashMap<String, usize>,
-    /// Tracks the current address during assembly
     current_address: usize,
 }
 
-impl Assembler
+impl Parser
 {
-    /// Creates a new instance of the Assembler.
-    ///
-    /// # Returns
-    /// * A new Assembler instance with empty instructions and labels.
     pub fn new() -> Self
     {
         Self {
@@ -153,7 +75,7 @@ impl Assembler
         if !reg.starts_with('r') {
             return Err(AssemblerError::InvalidRegister(reg.to_string()));
         }
-        let num = u8::from_str(&reg[1..]).map_err(|_| AssemblerError::InvalidRegister(reg.to_string()))?;
+        let num = u8::from_str_radix(&reg[1..], 10).map_err(|_| AssemblerError::InvalidRegister(reg.to_string()))?;
         if num >= 8 {
             return Err(AssemblerError::InvalidRegister(reg.to_string()));
         }
@@ -279,7 +201,7 @@ impl Assembler
         let value = if value.starts_with("0x") {
             u8::from_str_radix(&value[2..], 16)
         } else {
-            u8::from_str(value)
+            u8::from_str_radix(value, 10)
         }
         .map_err(|_| AssemblerError::InvalidValue(value.to_string()))?;
         Ok(value)
@@ -298,7 +220,7 @@ impl Assembler
         }
 
         // If it's not a valid number, it's an undefined label
-        u8::from_str(target).map_err(|_| AssemblerError::UndefinedLabel(target.to_string()))
+        u8::from_str_radix(target, 10).map_err(|_| AssemblerError::UndefinedLabel(target.to_string()))
     }
 
     /// The main entry point for assembly. Converts assembly code into bytecode.
