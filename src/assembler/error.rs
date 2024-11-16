@@ -1,18 +1,38 @@
+//! Error types for the assembler module
+//!
+//! This module defines all the possible errors that can occur during
+//! the assembly process, from syntax errors to invalid instructions.
+
 use std::error::Error;
 use std::fmt;
 
+/// Represents all possible errors that can occur during assembly.
 #[derive(Debug)]
 pub enum AssemblerError
 {
+    /// An invalid instruction opcode was encountered
     InvalidInstruction(String),
+
+    /// A register reference was invalid (e.g., "r9" when only r0-r7 exist)
     InvalidRegister(String),
+
+    /// An immediate value or address was invalid
     InvalidValue(String),
+
+    /// A label was malformed or invalid
     InvalidLabel(String),
+
+    /// A referenced label wasn't defined anywhere in the code
     UndefinedLabel(String),
+
+    /// Wrong number of operands for an instruction
     InvalidNumberOfOperands
     {
+        /// The instruction that had the wrong number of operands
         instruction: String,
+        /// How many operands the instruction expects
         expected: usize,
+        /// How many operands were actually provided
         got: usize,
     },
 }
