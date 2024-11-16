@@ -25,7 +25,6 @@ mod error;
 mod instruction;
 mod parser;
 
-pub use error::AssemblerError;
 use parser::Parser;
 
 /// The main assembler that converts assembly code into bytecode.
