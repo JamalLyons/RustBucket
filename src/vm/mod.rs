@@ -12,8 +12,6 @@ pub mod cpu;
 pub mod error;
 pub mod opcode;
 
-pub use cpu::CPU;
-pub use error::VMError;
 pub use opcode::Opcode;
 
 // Default configuration values
@@ -106,19 +104,10 @@ impl VMConfig
 /// This struct provides a fluent interface for setting up
 /// a VMConfig with custom values. Each method returns self
 /// to allow method chaining.
+#[derive(Default)]
 pub struct VMConfigBuilder
 {
     config: VMConfig,
-}
-
-impl Default for VMConfigBuilder
-{
-    fn default() -> Self
-    {
-        Self {
-            config: VMConfig::default(),
-        }
-    }
 }
 
 impl VMConfigBuilder

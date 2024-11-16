@@ -25,8 +25,6 @@ mod error;
 mod instruction;
 mod parser;
 
-pub use error::*;
-pub use instruction::*;
 pub use parser::*;
 
 /// The main assembler that converts assembly code into bytecode.
@@ -36,6 +34,14 @@ pub use parser::*;
 pub struct Assembler
 {
     parser: Parser,
+}
+
+impl Default for Assembler
+{
+    fn default() -> Self
+    {
+        Self::new()
+    }
 }
 
 impl Assembler

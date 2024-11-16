@@ -17,7 +17,6 @@ use std::collections::HashMap;
 
 use super::error::AssemblerError;
 use super::instruction::Instruction;
-use crate::vm::Opcode;
 
 /// Parser for assembly code
 ///
@@ -33,6 +32,14 @@ pub struct Parser
     pub labels: HashMap<String, usize>,
     /// Current address during assembly
     current_address: usize,
+}
+
+impl Default for Parser
+{
+    fn default() -> Self
+    {
+        Self::new()
+    }
 }
 
 impl Parser

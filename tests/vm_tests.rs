@@ -197,7 +197,7 @@ fn run_test_cases(test_cases: Vec<(&str, Vec<u8>)>)
 
         let bytecode = assembler
             .assemble(program)
-            .expect(&format!("Assembly failed for program:\n{}", program));
+            .unwrap_or_else(|_| panic!("Assembly failed for program:\n{}", program));
         vm.load_program(&bytecode);
         vm.run().expect("Program execution failed");
 
