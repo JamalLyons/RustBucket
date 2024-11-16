@@ -24,8 +24,8 @@ use super::error::AssemblerError;
 #[derive(Debug, PartialEq)]
 pub struct Instruction
 {
-    opcode: String,
-    operands: Vec<String>,
+    pub opcode: String,
+    pub operands: Vec<String>,
 }
 
 impl Instruction
@@ -45,13 +45,7 @@ impl Instruction
     {
         match self.opcode.as_str() {
             "MOV" => {
-                if self.operands.len() != 2 {
-                    return Err(AssemblerError::InvalidNumberOfOperands {
-                        instruction: self.opcode.clone(),
-                        expected: 2,
-                        got: self.operands.len(),
-                    });
-                }
+                check_operand_count(self, 2)?;
                 let dst = parse_register(&self.operands[0])?;
                 let src = if self.operands[1].starts_with('r') {
                     parse_register(&self.operands[1])?
@@ -60,34 +54,44 @@ impl Instruction
                 };
                 Ok(vec![0x04, dst, src])
             }
-            "INC" => {
-                check_operand_count(self, 1)?;
-                Ok(vec![0x01, parse_register(&self.operands[0])?])
+            "STORE" => {
+                check_operand_count(self, 2)?;
+                let reg = parse_register(&self.operands[0])?;
+                let addr = parse_value(&self.operands[1])?;
+                Ok(vec![0x21, reg, addr])
             }
-            "DEC" => {
-                check_operand_count(self, 1)?;
-                Ok(vec![0x02, parse_register(&self.operands[0])?])
+            "LOAD" => {
+                check_operand_count(self, 2)?;
+                let reg = parse_register(&self.operands[0])?;
+                let addr = parse_value(&self.operands[1])?;
+                Ok(vec![0x20, reg, addr])
             }
-            "OUT" => {
-                check_operand_count(self, 1)?;
-                Ok(vec![0x03, parse_register(&self.operands[0])?])
+            "STIDX" => {
+                check_operand_count(self, 2)?;
+                let reg = parse_register(&self.operands[0])?;
+                let base = parse_register(&self.operands[1])?;
+                Ok(vec![0x23, reg, base])
             }
-            "ADD" => encode_two_reg_op(self, 0x30),
-            "SUB" => encode_two_reg_op(self, 0x31),
-            "MUL" => encode_two_reg_op(self, 0x32),
-            "DIV" => encode_two_reg_op(self, 0x33),
-            "CMP" => encode_two_reg_op(self, 0x43),
+            "LDIDX" => {
+                check_operand_count(self, 2)?;
+                let reg = parse_register(&self.operands[0])?;
+                let base = parse_register(&self.operands[1])?;
+                Ok(vec![0x22, reg, base])
+            }
             "PUSH" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x10, parse_register(&self.operands[0])?])
+                let reg = parse_register(&self.operands[0])?;
+                Ok(vec![0x10, reg])
             }
             "POP" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x11, parse_register(&self.operands[0])?])
+                let reg = parse_register(&self.operands[0])?;
+                Ok(vec![0x11, reg])
             }
             "CALL" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x12, parse_value(&self.operands[0])?])
+                let addr = parse_value(&self.operands[0])?;
+                Ok(vec![0x12, addr])
             }
             "RET" => {
                 check_operand_count(self, 0)?;
@@ -95,19 +99,29 @@ impl Instruction
             }
             "JMP" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x40, parse_value(&self.operands[0])?])
+                let addr = parse_value(&self.operands[0])?;
+                Ok(vec![0x40, addr])
             }
             "JEQ" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x41, parse_value(&self.operands[0])?])
+                let addr = parse_value(&self.operands[0])?;
+                Ok(vec![0x41, addr])
             }
             "JGT" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x42, parse_value(&self.operands[0])?])
+                let addr = parse_value(&self.operands[0])?;
+                Ok(vec![0x42, addr])
             }
             "JNE" => {
                 check_operand_count(self, 1)?;
-                Ok(vec![0x44, parse_value(&self.operands[0])?])
+                let addr = parse_value(&self.operands[0])?;
+                Ok(vec![0x44, addr])
+            }
+            "CMP" => {
+                check_operand_count(self, 2)?;
+                let reg1 = parse_register(&self.operands[0])?;
+                let reg2 = parse_register(&self.operands[1])?;
+                Ok(vec![0x43, reg1, reg2])
             }
             "HALT" | "HLT" => {
                 check_operand_count(self, 0)?;
