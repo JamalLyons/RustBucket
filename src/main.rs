@@ -26,18 +26,13 @@ fn main()
         
         ; Perform basic arithmetic: Add r1 to r0
         ADD r0, r1       ; r0 = r0 + r1 (result: 8)
-        OUT r0           ; Print the value in r0 (should print 8)
-        
-        ; Demonstrate memory operations
-        STORE r0, 0x50   ; Store the value from r0 into memory address 0x50
-        LOAD r3, 0x50    ; Load the value from memory address 0x50 into r3
-        OUT r3           ; Print the value in r3 (should print 8)
+        OUT r0           ; Print the value in r0
 
         HALT            ; Stop the program
     "#;
 
     println!("Running test program");
-    println!("Expected outputs: 8, 8, 8\n");
+    println!("Expected outputs: 8, \n");
 
     // Create an assembler and convert our assembly code into bytecode
     let mut assembler = Assembler::new();

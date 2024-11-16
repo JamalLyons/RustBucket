@@ -1,5 +1,4 @@
-use vm::vm::VMConfig;
-use vm::CPU;
+use vm::{VMConfig, CPU};
 
 pub fn create_test_vm() -> CPU
 {

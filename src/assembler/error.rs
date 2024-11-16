@@ -35,6 +35,12 @@ pub enum AssemblerError
         /// How many operands were actually provided
         got: usize,
     },
+
+    /// An invalid address was encountered
+    InvalidAddress(String),
+
+    /// A syntax error occurred
+    SyntaxError(String),
 }
 
 impl fmt::Display for AssemblerError
@@ -56,6 +62,8 @@ impl fmt::Display for AssemblerError
                 "Invalid number of operands for {}: expected {}, got {}",
                 instruction, expected, got
             ),
+            AssemblerError::InvalidAddress(s) => write!(f, "Invalid address: {}", s),
+            AssemblerError::SyntaxError(s) => write!(f, "Syntax error: {}", s),
         }
     }
 }

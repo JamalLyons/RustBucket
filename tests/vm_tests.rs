@@ -1,5 +1,5 @@
-use vm::vm::VMConfig;
-use vm::{Assembler, CPU};
+use vm::assembler::Assembler;
+use vm::{VMConfig, CPU};
 
 #[test]
 fn test_register_operations()
@@ -195,7 +195,9 @@ fn run_test_cases(test_cases: Vec<(&str, Vec<u8>)>)
     for (program, expected_registers) in test_cases {
         let mut vm = CPU::new(VMConfig::default());
 
-        let bytecode = assembler.assemble(program).expect("Assembly failed");
+        let bytecode = assembler
+            .assemble(program)
+            .expect(&format!("Assembly failed for program:\n{}", program));
         vm.load_program(&bytecode);
         vm.run().expect("Program execution failed");
 

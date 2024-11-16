@@ -17,6 +17,7 @@ use std::collections::HashMap;
 
 use super::error::AssemblerError;
 use super::instruction::Instruction;
+use crate::vm::Opcode;
 
 /// Parser for assembly code
 ///
@@ -69,62 +70,31 @@ impl Parser
     fn first_pass(&mut self, code: &str) -> Result<(), AssemblerError>
     {
         self.current_address = 0;
+        self.instructions.clear();
+        self.labels.clear();
 
         for line in code.lines() {
             let line = line.trim();
+
+            // Skip empty lines and comments
             if line.is_empty() || line.starts_with(';') {
                 continue;
             }
 
             // Handle labels (lines ending with ':')
             if line.ends_with(':') {
-                let label = line[..line.len() - 1].trim();
+                let label = &line[..line.len() - 1].trim();
                 self.validate_label(label)?;
                 self.labels.insert(label.to_string(), self.current_address);
                 continue;
             }
 
-            // Parse instruction lines
-            let parts: Vec<&str> = line.split(';').next().unwrap().trim().split_whitespace().collect();
-            if parts.is_empty() {
-                continue;
-            }
-
-            let opcode = parts[0].to_uppercase();
-            let operands: Vec<String> = parts[1..].iter().map(|s| s.replace(',', "")).collect();
-
-            let inst = Instruction::new(opcode, operands);
-
-            self.update_instruction_address(&inst);
+            // Parse instruction
+            let inst = line.parse::<Instruction>()?;
+            self.current_address += self.calculate_instruction_size(&inst);
             self.instructions.push(inst);
         }
         Ok(())
-    }
-
-    /// Validates a register reference (e.g., "r0", "r1")
-    ///
-    /// # Arguments
-    /// * `reg` - Register name to validate
-    ///
-    /// # Returns
-    /// * `Result<u8, AssemblerError>` - Register number or error if invalid
-    ///
-    /// # Examples
-    /// ```
-    /// assert!(parser.parse_register("r0").is_ok()); // Valid
-    /// assert!(parser.parse_register("r9").is_err()); // Invalid - too high
-    /// assert!(parser.parse_register("x0").is_err()); // Invalid - wrong format
-    /// ```
-    fn parse_register(&self, reg: &str) -> Result<u8, AssemblerError>
-    {
-        if !reg.starts_with('r') {
-            return Err(AssemblerError::InvalidRegister(reg.to_string()));
-        }
-        let num = u8::from_str_radix(&reg[1..], 10).map_err(|_| AssemblerError::InvalidRegister(reg.to_string()))?;
-        if num >= 8 {
-            return Err(AssemblerError::InvalidRegister(reg.to_string()));
-        }
-        Ok(num)
     }
 
     /// Calculates how many bytes an instruction will occupy in memory
@@ -136,208 +106,29 @@ impl Parser
     /// * `usize` - Number of bytes needed for this instruction
     fn calculate_instruction_size(&self, inst: &Instruction) -> usize
     {
-        match inst.opcode.as_str() {
-            "MOV" => 3,                                  // opcode + register + value
-            "ADD" | "SUB" | "MUL" | "DIV" | "CMP" => 3,  // opcode + two registers
-            "INC" | "DEC" | "OUT" | "PUSH" | "POP" => 2, // opcode + register
-            "JMP" | "JEQ" | "JGT" => 2,                  // opcode + address
-            "CALL" => 2,                                 // opcode + address
-            "RET" | "HALT" => 1,                         // just opcode
-            _ => 1,                                      // default case
-        }
+        // Get the size from the encoded instruction
+        inst.encode().map(|bytes| bytes.len()).unwrap_or(0)
     }
 
-    /// Converts an instruction into its bytecode representation
+    /// Performs the second pass of assembly, generating the final bytecode
     ///
-    /// # Arguments
-    /// * `inst` - The instruction to convert
+    /// This pass:
+    /// 1. Validates each instruction's operands
+    /// 2. Converts instructions to their binary representation
+    /// 3. Resolves all label references to addresses
     ///
     /// # Returns
-    /// * `Result<Vec<u8>, AssemblerError>` - Bytecode or error if conversion fails
-    fn instruction_to_bytes(&self, inst: &Instruction) -> Result<Vec<u8>, AssemblerError>
+    /// * `Result<Vec<u8>, AssemblerError>` - The complete program bytecode
+    fn second_pass(&self) -> Result<Vec<u8>, AssemblerError>
     {
-        // First validate the number of operands
-        self.validate_operands(inst)?;
+        let mut bytecode = Vec::new();
 
-        let mut bytes = Vec::new();
-
-        match inst.opcode.as_str() {
-            // Register operations
-            "MOV" => {
-                bytes.push(0x04);
-                bytes.push(self.parse_register(&inst.operands[0])?);
-                bytes.push(self.parse_value(&inst.operands[1])?);
-            }
-
-            // Arithmetic operations
-            "ADD" => self.encode_two_reg(0x30, &inst.operands, &mut bytes)?,
-            "SUB" => self.encode_two_reg(0x31, &inst.operands, &mut bytes)?,
-            "MUL" => self.encode_two_reg(0x32, &inst.operands, &mut bytes)?,
-            "DIV" => self.encode_two_reg(0x33, &inst.operands, &mut bytes)?,
-
-            // Single register operations
-            "INC" => self.encode_single_reg(0x01, &inst.operands, &mut bytes)?,
-            "DEC" => self.encode_single_reg(0x02, &inst.operands, &mut bytes)?,
-            "OUT" => self.encode_single_reg(0x03, &inst.operands, &mut bytes)?,
-
-            // Stack operations
-            "PUSH" => self.encode_single_reg(0x10, &inst.operands, &mut bytes)?,
-            "POP" => self.encode_single_reg(0x11, &inst.operands, &mut bytes)?,
-
-            // Memory operations
-            "LOAD" => {
-                bytes.push(0x20);
-                bytes.push(self.parse_register(&inst.operands[0])?);
-                bytes.push(self.parse_memory_operand(&inst.operands[1])?);
-            }
-            "STORE" => {
-                bytes.push(0x21);
-                bytes.push(self.parse_register(&inst.operands[0])?);
-                bytes.push(self.parse_memory_operand(&inst.operands[1])?);
-            }
-            "LDIDX" => self.encode_single_reg(0x22, &inst.operands, &mut bytes)?,
-            "STIDX" => self.encode_single_reg(0x23, &inst.operands, &mut bytes)?,
-
-            // Control flow
-            "JMP" => self.encode_jump(0x40, &inst.operands, &mut bytes)?,
-            "JEQ" => self.encode_jump(0x41, &inst.operands, &mut bytes)?,
-            "JGT" => self.encode_jump(0x42, &inst.operands, &mut bytes)?,
-            "CMP" => self.encode_two_reg(0x43, &inst.operands, &mut bytes)?,
-
-            // Function calls
-            "CALL" => self.encode_jump(0x12, &inst.operands, &mut bytes)?,
-            "RET" => bytes.push(0x13),
-
-            // System
-            "HALT" => bytes.push(0xFF),
-
-            _ => return Err(AssemblerError::InvalidInstruction(inst.opcode.clone())),
+        for inst in &self.instructions {
+            let inst_bytes = inst.encode()?;
+            bytecode.extend(inst_bytes);
         }
 
-        Ok(bytes)
-    }
-
-    /// Helper method to encode instructions with two register operands
-    ///
-    /// Used for arithmetic operations like ADD, SUB, MUL, DIV
-    ///
-    /// # Arguments
-    /// * `opcode` - The byte code for this instruction
-    /// * `operands` - The operands to encode (must be two register names)
-    /// * `bytes` - The vector to append the encoded bytes to
-    fn encode_two_reg(&self, opcode: u8, operands: &[String], bytes: &mut Vec<u8>) -> Result<(), AssemblerError>
-    {
-        bytes.push(opcode);
-        bytes.push(self.parse_register(&operands[0])?);
-        bytes.push(self.parse_register(&operands[1])?);
-        Ok(())
-    }
-
-    /// Helper method to encode instructions with a single register operand
-    ///
-    /// Used for operations like INC, DEC, OUT
-    ///
-    /// # Arguments
-    /// * `opcode` - The byte code for this instruction
-    /// * `operands` - The operands to encode (must be one register name)
-    /// * `bytes` - The vector to append the encoded bytes to
-    fn encode_single_reg(&self, opcode: u8, operands: &[String], bytes: &mut Vec<u8>) -> Result<(), AssemblerError>
-    {
-        bytes.push(opcode);
-        bytes.push(self.parse_register(&operands[0])?);
-        Ok(())
-    }
-
-    /// Helper method to encode jump instructions
-    ///
-    /// Used for JMP, JEQ, JGT instructions. Handles both label and direct address jumps.
-    ///
-    /// # Arguments
-    /// * `opcode` - The byte code for this jump instruction
-    /// * `operands` - The jump target (label or address)
-    /// * `bytes` - The vector to append the encoded bytes to
-    fn encode_jump(&self, opcode: u8, operands: &[String], bytes: &mut Vec<u8>) -> Result<(), AssemblerError>
-    {
-        bytes.push(opcode);
-        bytes.push(self.parse_jump_target(&operands[0])?);
-        Ok(())
-    }
-
-    /// Parses a value operand into a byte
-    ///
-    /// Handles both decimal and hexadecimal values
-    ///
-    /// # Arguments
-    /// * `value` - The string to parse (e.g., "42" or "0x2A")
-    ///
-    /// # Returns
-    /// * `Result<u8, AssemblerError>` - The parsed value or an error
-    ///
-    /// # Examples
-    /// ```
-    /// assert_eq!(parser.parse_value("42")?, 42);
-    /// assert_eq!(parser.parse_value("0x2A")?, 42);
-    /// ```
-    fn parse_value(&self, value: &str) -> Result<u8, AssemblerError>
-    {
-        let value = if value.starts_with("0x") {
-            u8::from_str_radix(&value[2..], 16)
-        } else {
-            u8::from_str_radix(value, 10)
-        }
-        .map_err(|_| AssemblerError::InvalidValue(value.to_string()))?;
-        Ok(value)
-    }
-
-    /// Parses a jump target into a byte address
-    ///
-    /// Handles both labels and direct addresses
-    ///
-    /// # Arguments
-    /// * `target` - The jump target (label name or address)
-    ///
-    /// # Returns
-    /// * `Result<u8, AssemblerError>` - The resolved address or an error
-    fn parse_jump_target(&self, target: &str) -> Result<u8, AssemblerError>
-    {
-        // First check if it's a label
-        if let Some(&addr) = self.labels.get(target) {
-            return Ok(addr as u8);
-        }
-
-        // If not a label, try parsing as a hex or decimal value
-        if target.starts_with("0x") {
-            return u8::from_str_radix(&target[2..], 16).map_err(|_| AssemblerError::InvalidValue(target.to_string()));
-        }
-
-        u8::from_str_radix(target, 10).map_err(|_| AssemblerError::UndefinedLabel(target.to_string()))
-    }
-
-    /// Validates that an instruction has the correct number of operands
-    ///
-    /// # Arguments
-    /// * `inst` - The instruction to validate
-    ///
-    /// # Returns
-    /// * `Result<(), AssemblerError>` - Ok if valid, Err with details if invalid
-    fn validate_operands(&self, inst: &Instruction) -> Result<(), AssemblerError>
-    {
-        let expected = match inst.opcode.as_str() {
-            "MOV" | "ADD" | "SUB" | "MUL" | "DIV" | "CMP" => 2,
-            "LOAD" | "STORE" => 2,
-            "INC" | "DEC" | "OUT" | "PUSH" | "POP" | "LDIDX" | "STIDX" | "JMP" | "JEQ" | "JGT" => 1,
-            "HALT" | "RET" => 0,
-            _ => return Err(AssemblerError::InvalidInstruction(inst.opcode.clone())),
-        };
-
-        match inst.operands.len().cmp(&expected) {
-            std::cmp::Ordering::Less | std::cmp::Ordering::Greater => Err(AssemblerError::InvalidNumberOfOperands {
-                instruction: inst.opcode.clone(),
-                expected,
-                got: inst.operands.len(),
-            }),
-            std::cmp::Ordering::Equal => Ok(()),
-        }
+        Ok(bytecode)
     }
 
     /// Validates a label name
@@ -354,52 +145,42 @@ impl Parser
     /// * `Result<(), AssemblerError>` - Ok if valid, Err if invalid
     fn validate_label(&self, label: &str) -> Result<(), AssemblerError>
     {
-        if label.is_empty() || label.chars().next().unwrap().is_numeric() {
-            return Err(AssemblerError::InvalidLabel(label.to_string()));
+        if label.is_empty() {
+            return Err(AssemblerError::InvalidLabel("Empty label".to_string()));
         }
+
+        if label.chars().next().unwrap().is_numeric() {
+            return Err(AssemblerError::InvalidLabel(format!(
+                "Label cannot start with a number: {}",
+                label
+            )));
+        }
+
         if !label.chars().all(|c| c.is_alphanumeric() || c == '_') {
-            return Err(AssemblerError::InvalidLabel(label.to_string()));
+            return Err(AssemblerError::InvalidLabel(format!(
+                "Label contains invalid characters: {}",
+                label
+            )));
         }
+
         Ok(())
     }
 
-    /// Performs the second pass of assembly, generating the final bytecode
-    ///
-    /// This pass:
-    /// 1. Validates each instruction's operands
-    /// 2. Converts instructions to their binary representation
-    /// 3. Resolves all label references to addresses
-    ///
-    /// # Returns
-    /// * `Result<Vec<u8>, AssemblerError>` - The complete program bytecode
-    fn second_pass(&self) -> Result<Vec<u8>, AssemblerError>
+    fn parse_instruction(&mut self, tokens: &[&str]) -> Result<Instruction, AssemblerError>
     {
-        let mut bytecode = Vec::new();
-        for inst in &self.instructions {
-            let inst_bytes = self.instruction_to_bytes(inst)?;
-            bytecode.extend(inst_bytes);
+        match tokens[0].to_uppercase().as_str() {
+            // ... existing matches ...
+            "HALT" | "HLT" => {
+                if tokens.len() != 1 {
+                    return Err(AssemblerError::InvalidInstruction("HALT takes no arguments".to_string()));
+                }
+                Ok(Instruction::new("HALT".to_string(), vec![]))
+            }
+            // ... rest of the matches ...
+            _ => Err(AssemblerError::InvalidInstruction(format!(
+                "Unknown instruction: {}",
+                tokens[0]
+            ))),
         }
-        Ok(bytecode)
-    }
-
-    // Add this new method to handle memory addressing
-    fn parse_memory_operand(&self, operand: &str) -> Result<u8, AssemblerError>
-    {
-        if operand.is_empty() {
-            return Err(AssemblerError::InvalidValue("Empty operand".to_string()));
-        }
-
-        // If it starts with 'r', it's a register containing the address
-        if operand.starts_with('r') {
-            return self.parse_register(operand);
-        }
-        // Otherwise, treat it as a direct address
-        self.parse_value(operand)
-    }
-
-    // Add this method to track instruction addresses during first pass
-    fn update_instruction_address(&mut self, inst: &Instruction)
-    {
-        self.current_address += self.calculate_instruction_size(inst);
     }
 }
