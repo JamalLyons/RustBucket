@@ -12,6 +12,8 @@ pub mod cpu;
 pub mod error;
 pub mod opcode;
 
+pub use cpu::CPU;
+pub use error::VMError;
 pub use opcode::Opcode;
 
 // Default configuration values

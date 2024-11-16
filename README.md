@@ -147,6 +147,7 @@ let mut assembler = Assembler::new();
 - [x] Basic VM implementation
 - [x] Simple assembler
 - [x] Comprehensive instruction set
+- [ ] Test current features
 - [ ] Add support for more data types (e.g. 16-bit integers)
 - [ ] Add support for complex data structures (e.g. arrays, maps)
 - [ ] Add support for interrupts

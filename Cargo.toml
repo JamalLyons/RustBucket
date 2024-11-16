@@ -1,6 +1,15 @@
 [package]
-name = "rust-vm"
+name = "RustBucket"
 version = "0.0.1"
 edition = "2021"
 
+[lib]
+name = "vm"
+path = "src/lib.rs"
+
+[[bin]]
+name = "vm-cli"
+path = "src/main.rs"
+
 [dependencies]
+# Add any dependencies here

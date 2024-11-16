@@ -3,5 +3,5 @@
 version = 4
 
 [[package]]
-name = "rust-vm"
+name = "RustBucket"
 version = "0.0.1"

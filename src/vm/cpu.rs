@@ -4,17 +4,13 @@ use super::{Opcode, VMConfig};
 /// A struct representing a simple CPU for the virtual machine.
 pub struct CPU
 {
-    registers: [u8; 8], // A
-    pc: usize,          // Program counter to keep track of the next instruction.
-    memory: Vec<u8>,    // Simulated RAM to store program instructions and data.
-    stack: Vec<u8>,     // Stack to store temporary data
-    sp: usize,          // Stack pointer
-    // Add flags register for comparisons
+    registers: Vec<u8>,
+    pc: usize,
+    memory: Vec<u8>,
+    sp: usize,
     flags: u8,
-    // Add call stack for function calls
+    config: VMConfig,
     call_stack: Vec<usize>,
-
-    debug: bool,
 }
 
 impl CPU
@@ -26,14 +22,13 @@ impl CPU
     pub fn new(config: VMConfig) -> Self
     {
         Self {
-            registers: [0; 8],                   // Initialize all registers to 0.
-            pc: 0,                               // Start the program counter at the beginning of memory.
-            memory: vec![0; config.memory_size], // Allocate memory with the given size, initialized to 0.
-            stack: vec![0; 256],                 // Initialize stack with 256 bytes
-            sp: 0,
+            registers: vec![0; config.num_registers],
+            pc: config.pc_start,
+            memory: vec![0; config.memory_size],
+            sp: config.sp_start,
             flags: 0,
+            config,
             call_stack: Vec::new(),
-            debug: config.debug,
         }
     }
 
@@ -139,16 +134,18 @@ impl CPU
     {
         match opcode {
             Opcode::Inc(reg) => {
-                if reg >= 8 {
+                let reg = reg as usize;
+                if reg >= self.config.num_registers {
                     return Err(VMError::InvalidRegister(reg));
                 }
-                self.registers[reg as usize] = self.registers[reg as usize].wrapping_add(1);
+                self.registers[reg] = self.registers[reg].wrapping_add(1);
             }
             Opcode::Dec(reg) => {
-                if reg >= 8 {
+                let reg = reg as usize;
+                if reg >= self.config.num_registers {
                     return Err(VMError::InvalidRegister(reg));
                 }
-                self.registers[reg as usize] = self.registers[reg as usize].wrapping_sub(1);
+                self.registers[reg] = self.registers[reg].wrapping_sub(1);
             }
             Opcode::Out(reg) => print!("{}", self.registers[reg as usize]),
             Opcode::Mov(dst, src) => {
@@ -210,19 +207,19 @@ impl CPU
             }
 
             Opcode::Push(reg) => {
-                if self.sp >= self.stack.len() {
+                if self.sp == 0 {
                     return Err(VMError::StackOverflow);
                 }
-                self.stack[self.sp] = self.registers[reg as usize];
-                self.sp += 1;
+                self.sp -= 1;
+                self.memory[self.sp] = self.registers[reg as usize];
             }
 
             Opcode::Pop(reg) => {
-                if self.sp == 0 {
+                if self.sp >= self.memory.len() {
                     return Err(VMError::StackUnderflow);
                 }
-                self.sp -= 1;
-                self.registers[reg as usize] = self.stack[self.sp];
+                self.registers[reg as usize] = self.memory[self.sp];
+                self.sp += 1;
             }
 
             Opcode::Load(reg) => {
@@ -312,7 +309,7 @@ impl CPU
     // Add this method
     pub fn dump_state(&self)
     {
-        if !self.debug {
+        if !self.config.debug {
             return;
         }
 
@@ -325,5 +322,12 @@ impl CPU
             "Memory[0x50-0x52]: {:02X} {:02X} {:02X}",
             self.memory[0x50], self.memory[0x51], self.memory[0x52]
         );
+        println!("Call stack: {:?}", self.call_stack);
+    }
+
+    // Add this new method
+    pub fn get_register(&self, index: usize) -> Result<u8, VMError>
+    {
+        self.registers.get(index).copied().ok_or(VMError::InvalidRegister(index))
     }
 }

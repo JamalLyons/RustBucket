@@ -25,7 +25,9 @@ mod error;
 mod instruction;
 mod parser;
 
-use parser::Parser;
+pub use error::*;
+pub use instruction::*;
+pub use parser::*;
 
 /// The main assembler that converts assembly code into bytecode.
 ///
@@ -74,9 +76,9 @@ impl Assembler
     ///     Err(e) => eprintln!("Assembly failed: {}", e),
     /// }
     /// ```
-    pub fn assemble(&mut self, code: &str) -> Result<Vec<u8>, error::AssemblerError>
+    pub fn assemble(&mut self, code: &str) -> Result<Vec<u8>, Box<dyn std::error::Error>>
     {
-        self.parser.assemble(code)
+        self.parser.assemble(code).map_err(|e| e.into())
     }
 
     /// Returns a reference to the label-to-address mapping.
