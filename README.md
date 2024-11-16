@@ -87,6 +87,37 @@ The VM includes comprehensive error handling for:
 - Invalid register numbers
 - Unknown opcodes
 
+## Data Types
+
+The VM currently supports a limited set of data types focused on basic 8-bit operations:
+
+### Primary Data Types
+- **8-bit Unsigned Integers (u8)**
+  - All register values
+  - Memory values
+  - Stack values
+  - Immediate instruction values
+  - All arithmetic operations use wrapping arithmetic
+
+### Internal Types
+- **Addresses/Indices (usize)**
+  - Program counter (PC)
+  - Stack pointer (SP)
+  - Call stack addresses
+
+### Flags
+- **Status Flags (bits)**
+  - Zero flag (bit 0): Set when a comparison results in equality
+  - Greater flag (bit 1): Set when a comparison results in greater than
+
+### Limitations
+The VM currently does not support:
+- Signed integers
+- Multi-byte integers
+- Floating point numbers
+- Characters/strings
+- Complex data structures (arrays, maps, etc.)
+
 ## Usage
 
 ```rust
