@@ -129,10 +129,35 @@ impl Parser
     fn second_pass(&self) -> Result<Vec<u8>, AssemblerError>
     {
         let mut bytecode = Vec::new();
+        let mut current_addr = 0;
 
         for inst in &self.instructions {
-            let inst_bytes = inst.encode()?;
-            bytecode.extend(inst_bytes);
+            // Clone the instruction bytes since we might need to modify them
+            let mut inst_bytes = inst.encode()?;
+
+            // If this is a jump/call instruction, resolve the label
+            match inst.opcode.as_str() {
+                "JMP" | "JEQ" | "JGT" | "JNE" | "CALL" => {
+                    if let Some(label) = inst.operands.first() {
+                        // Check if the operand is a label (not a numeric value)
+                        if !label.starts_with("0x") && !label.chars().next().unwrap().is_numeric() {
+                            if let Some(&addr) = self.labels.get(label) {
+                                // Update the address in the instruction bytes
+                                inst_bytes[1] = addr as u8;
+                            } else {
+                                return Err(AssemblerError::UndefinedLabel(label.clone()));
+                            }
+                        }
+                    }
+                }
+                _ => {}
+            }
+
+            // Keep track of current address for label resolution
+            current_addr += inst_bytes.len();
+
+            // Add the instruction bytes to the final bytecode
+            bytecode.extend_from_slice(&inst_bytes);
         }
 
         Ok(bytecode)
