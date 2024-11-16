@@ -54,6 +54,30 @@ impl Instruction
                 };
                 Ok(vec![0x04, dst, src])
             }
+            "ADD" => {
+                check_operand_count(self, 2)?;
+                let dst = parse_register(&self.operands[0])?;
+                let src = parse_register(&self.operands[1])?;
+                Ok(vec![0x30, dst, src])
+            }
+            "SUB" => {
+                check_operand_count(self, 2)?;
+                let dst = parse_register(&self.operands[0])?;
+                let src = parse_register(&self.operands[1])?;
+                Ok(vec![0x31, dst, src])
+            }
+            "MUL" => {
+                check_operand_count(self, 2)?;
+                let dst = parse_register(&self.operands[0])?;
+                let src = parse_register(&self.operands[1])?;
+                Ok(vec![0x32, dst, src])
+            }
+            "DIV" => {
+                check_operand_count(self, 2)?;
+                let dst = parse_register(&self.operands[0])?;
+                let src = parse_register(&self.operands[1])?;
+                Ok(vec![0x33, dst, src])
+            }
             "STORE" => {
                 check_operand_count(self, 2)?;
                 let reg = parse_register(&self.operands[0])?;
@@ -126,6 +150,11 @@ impl Instruction
             "HALT" | "HLT" => {
                 check_operand_count(self, 0)?;
                 Ok(vec![0xFF])
+            }
+            "OUT" => {
+                check_operand_count(self, 1)?;
+                let reg = parse_register(&self.operands[0])?;
+                Ok(vec![0x03, reg])
             }
             _ => Err(AssemblerError::InvalidInstruction(self.opcode.clone())),
         }
