@@ -346,6 +346,9 @@ impl CPU
     // Add this new method
     pub fn get_register(&self, index: usize) -> Result<u8, VMError>
     {
-        self.registers.get(index).copied().ok_or(VMError::InvalidRegister(index))
+        if index >= self.registers.len() {
+            return Err(VMError::InvalidRegister(index));
+        }
+        Ok(self.registers[index])
     }
 }
