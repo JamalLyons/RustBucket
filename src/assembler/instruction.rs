@@ -105,6 +105,10 @@ impl Instruction
                 check_operand_count(self, 1)?;
                 Ok(vec![0x42, parse_value(&self.operands[0])?])
             }
+            "JNE" => {
+                check_operand_count(self, 1)?;
+                Ok(vec![0x44, parse_value(&self.operands[0])?])
+            }
             "HALT" | "HLT" => {
                 check_operand_count(self, 0)?;
                 Ok(vec![0xFF])

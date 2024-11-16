@@ -32,6 +32,7 @@ pub enum Opcode
     Jmp,
     Jeq,
     Jgt,
+    Jne,
 
     // System
     Halt,

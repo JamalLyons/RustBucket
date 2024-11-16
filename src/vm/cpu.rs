@@ -21,11 +21,14 @@ impl CPU
     /// * `config` - The configuration for the CPU.
     pub fn new(config: VMConfig) -> Self
     {
+        // Calculate stack pointer start based on stack size
+        let sp_start = config.memory_size - config.stack_size;
+
         Self {
             registers: vec![0; config.num_registers],
             pc: config.pc_start,
             memory: vec![0; config.memory_size],
-            sp: config.sp_start,
+            sp: sp_start, // Use calculated stack pointer
             flags: 0,
             config,
             call_stack: Vec::new(),
@@ -99,10 +102,11 @@ impl CPU
             }
 
             // Jump instructions
-            0x40..=0x42 => match opcode_byte {
+            0x40..=0x44 => match opcode_byte {
                 0x40 => Opcode::Jmp,
                 0x41 => Opcode::Jeq,
                 0x42 => Opcode::Jgt,
+                0x44 => Opcode::Jne,
                 _ => unreachable!(),
             },
 
@@ -147,7 +151,12 @@ impl CPU
                 }
                 self.registers[reg] = self.registers[reg].wrapping_sub(1);
             }
-            Opcode::Out(reg) => print!("{}", self.registers[reg as usize]),
+            Opcode::Out(reg) => {
+                print!("{} ", self.registers[reg as usize]);
+                if self.config.debug {
+                    println!();
+                }
+            }
             Opcode::Mov(dst, src) => {
                 self.registers[dst as usize] = src;
             }
@@ -267,8 +276,17 @@ impl CPU
             }
 
             Opcode::Halt => {
-                // Set program counter to end of memory to stop execution
                 self.pc = self.memory.len();
+                return Ok(());
+            }
+
+            Opcode::Jne => {
+                let addr = self.memory[self.pc] as usize;
+                self.pc += 1;
+                if self.flags & 1 == 0 {
+                    // Jump if zero flag is NOT set
+                    self.pc = addr;
+                }
             }
         }
         Ok(())
