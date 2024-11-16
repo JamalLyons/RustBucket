@@ -7,31 +7,31 @@ fn test_register_operations()
     let test_cases = vec![
         (
             // Test MOV immediate
-            "
+            r#"
             MOV r0, 5
             MOV r1, 10
-            HLT
-            ",
-            vec![0, 5, 1, 10],
+            HALT
+            "#,
+            vec![5, 10, 0, 0],
         ),
         (
             // Test MOV register to register
-            "
+            r#"
             MOV r0, 42
             MOV r1, r0
-            HLT
-            ",
+            HALT
+            "#,
             vec![42, 42, 0, 0],
         ),
         (
             // Test INC and DEC
-            "
+            r#"
             MOV r0, 5
             INC r0
             MOV r1, 10
             DEC r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![6, 9, 0, 0],
         ),
     ];
@@ -45,42 +45,42 @@ fn test_arithmetic_operations()
     let test_cases = vec![
         (
             // Test ADD
-            "
+            r#"
             MOV r0, 5
             MOV r1, 3
             ADD r0, r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![8, 3, 0, 0],
         ),
         (
             // Test SUB
-            "
+            r#"
             MOV r0, 10
             MOV r1, 3
             SUB r0, r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![7, 3, 0, 0],
         ),
         (
             // Test MUL
-            "
+            r#"
             MOV r0, 4
             MOV r1, 3
             MUL r0, r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![12, 3, 0, 0],
         ),
         (
             // Test DIV
-            "
+            r#"
             MOV r0, 15
             MOV r1, 3
             DIV r0, r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![5, 3, 0, 0],
         ),
     ];
@@ -94,25 +94,25 @@ fn test_memory_operations()
     let test_cases = vec![
         (
             // Test LOAD and STORE
-            "
+            r#"
             MOV r0, 42
             STORE r0, 0x50
             MOV r0, 0
             LOAD r1, 0x50
-            HLT
-            ",
+            HALT
+            "#,
             vec![0, 42, 0, 0],
         ),
         (
             // Test indexed load/store
-            "
+            r#"
             MOV r0, 42
             MOV r1, 0x50
-            STXI r0, r1
+            STIDX r0, r1
             MOV r0, 0
-            LDXI r2, r1
-            HLT
-            ",
+            LDIDX r2, r1
+            HALT
+            "#,
             vec![0, 0x50, 42, 0],
         ),
     ];
@@ -126,19 +126,19 @@ fn test_control_flow()
     let test_cases = vec![
         (
             // Test JMP
-            "
+            r#"
             MOV r0, 1
             JMP skip
             MOV r0, 2
             skip:
             MOV r1, 3
-            HLT
-            ",
+            HALT
+            "#,
             vec![1, 3, 0, 0],
         ),
         (
             // Test conditional jumps
-            "
+            r#"
             MOV r0, 5
             MOV r1, 3
             CMP r0, r1
@@ -146,8 +146,8 @@ fn test_control_flow()
             MOV r2, 0
             greater:
             MOV r2, 1
-            HLT
-            ",
+            HALT
+            "#,
             vec![5, 3, 1, 0],
         ),
     ];
@@ -161,26 +161,26 @@ fn test_stack_operations()
     let test_cases = vec![
         (
             // Test PUSH and POP
-            "
+            r#"
             MOV r0, 42
             PUSH r0
             MOV r0, 0
             POP r1
-            HLT
-            ",
+            HALT
+            "#,
             vec![0, 42, 0, 0],
         ),
         (
             // Test CALL and RET
-            "
+            r#"
             MOV r0, 1
             CALL subroutine
             MOV r2, 3
-            HLT
+            HALT
             subroutine:
             MOV r1, 2
             RET
-            ",
+            "#,
             vec![1, 2, 3, 0],
         ),
     ];
@@ -214,22 +214,22 @@ fn run_test_cases(test_cases: Vec<(&str, Vec<u8>)>)
 }
 
 #[test]
-#[should_panic(expected = "Division by zero")]
+#[should_panic(expected = "DivisionByZero")]
 fn test_division_by_zero()
 {
-    let program = "
+    let program = r#"
         MOV r0, 10
         MOV r1, 0
         DIV r0, r1
-        HLT
-    ";
+        HALT
+    "#;
 
     let mut assembler = Assembler::new();
     let mut vm = CPU::new(VMConfig::default());
 
     let bytecode = assembler.assemble(program).expect("Assembly failed");
     vm.load_program(&bytecode);
-    vm.run().expect("Program should fail with division by zero");
+    vm.run().unwrap();
 }
 
 #[test]
@@ -248,7 +248,7 @@ fn test_comparison_flags()
             equal:
             MOV r2, 1
             end:
-            HLT
+            HALT
             ",
             vec![5, 5, 1, 0],
         ),
@@ -264,7 +264,7 @@ fn test_comparison_flags()
             not_equal:
             MOV r2, 1
             end:
-            HLT
+            HALT
             ",
             vec![5, 6, 1, 0],
         ),
